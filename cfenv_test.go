@@ -1,7 +1,9 @@
-package cfenv_test
+package cfenvnested_test
 
 import (
-	. "github.com/cloudfoundry-community/go-cfenv"
+	"fmt"
+
+	. "github.com/cloudfoundry-community/go-cfenv-nested"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -26,6 +28,16 @@ var _ = Describe("Cfenv", func() {
 			`TMPDIR=/home/vcap/tmp`,
 			`USER=vcap`,
 			`VCAP_SERVICES={"elephantsql-dev":[{"name":"elephantsql-dev-c6c60","label":"elephantsql-dev","tags":["New Product","relational","Data Store","postgresql"],"plan":"turtle","credentials":{"uri":"postgres://seilbmbd:PHxTPJSbkcDakfK4cYwXHiIX9Q8p5Bxn@babar.elephantsql.com:5432/seilbmbd"}}],"cloudantNoSQLDB": [{ "name": "my_cloudant", "label": "cloudantNoSQLDB", "plan": "Shared", "credentials": { "username": "18675309-0000-4aaa-bbbb-999999999-bluemix", "password": "18675309deadbeefaaaabbbbccccddddeeeeffff000099999999999999999999", "host": "01234567-9999-4999-aaaa-abcdefabcdef-bluemix.cloudant.com", "port": 443, "url": "https://18675309-0000-4aaa-bbbb-999999999-bluemix:18675309deadbeefaaaabbbbccccddddeeeeffff000099999999999999999999@01234567-9999-4999-aaaa-abcdefabcdef-bluemix.cloudant.com"}}],"sendgrid":[{"name":"mysendgrid","label":"sendgrid","tags":["smtp","Email"],"plan":"free","credentials":{"hostname":"smtp.sendgrid.net","username":"QvsXMbJ3rK","password":"HCHMOYluTv"}}]}`,
+		}
+
+		envWithNestedCredentials := []string{
+			`VCAP_APPLICATION={"instance_id":"451f045fd16427bb99c895a2649b7b2a","instance_index":0,"host":"0.0.0.0","port":61857,"started_at":"2013-08-12 00:05:29 +0000","started_at_timestamp":1376265929,"start":"2013-08-12 00:05:29 +0000","state_timestamp":1376265929,"limits":{"mem":512,"disk":1024,"fds":16384},"application_version":"c1063c1c-40b9-434e-a797-db240b587d32","application_name":"styx-james","application_uris":["styx-james.a1-app.cf-app.com"],"version":"c1063c1c-40b9-434e-a797-db240b587d32","name":"styx-james","uris":["styx-james.a1-app.cf-app.com"],"users":null}`,
+			`HOME=/home/vcap/app`,
+			`MEMORY_LIMIT=512m`,
+			`PWD=/home/vcap`,
+			`TMPDIR=/home/vcap/tmp`,
+			`USER=vcap`,
+			`VCAP_SERVICES={"logstash14":[{"credentials":{"hostname":"10.10.5.251","ports":{"514/tcp":"49160","9200/tcp":"49161","9300/tcp":"49159"}},"label":"logstash14","name":"proxy-logs","plan":"free","syslog_drain_url":"http://10.10.5.251:49160","tags":["logstash14","logstash","syslog"]}]}`,
 		}
 
 		invalidEnv := []string{
@@ -121,7 +133,7 @@ var _ = Describe("Cfenv", func() {
 				Ω(cfenv.Services["cloudantNoSQLDB"][0].Label).Should(BeEquivalentTo("cloudantNoSQLDB"))
 				Ω(cfenv.Services["cloudantNoSQLDB"][0].Plan).Should(BeEquivalentTo("Shared"))
 				Ω(len(cfenv.Services["cloudantNoSQLDB"][0].Credentials)).Should(BeEquivalentTo(5))
-				Ω(cfenv.Services["cloudantNoSQLDB"][0].Credentials["port"]).Should(BeEquivalentTo("443"))
+				Ω(cfenv.Services["cloudantNoSQLDB"][0].Credentials["port"]).Should(BeEquivalentTo(443))
 
 				Ω(cfenv.Services["sendgrid"][0].Name).Should(BeEquivalentTo("mysendgrid"))
 				Ω(cfenv.Services["sendgrid"][0].Label).Should(BeEquivalentTo("sendgrid"))
@@ -144,6 +156,42 @@ var _ = Describe("Cfenv", func() {
 				label, err := cfenv.Services.WithLabel("elephantsql-dev")
 				Ω(len(label)).Should(BeEquivalentTo(1))
 				Ω(label[0].Label).Should(BeEquivalentTo("elephantsql-dev"))
+				Ω(err).Should(BeNil())
+			})
+		})
+
+		Context("With valid environment with a service with nested credentials (credential value is a hash/object)", func() {
+			It("Should deserialize correctly", func() {
+				testEnv := Env(envWithNestedCredentials)
+				cfenv, err := New(testEnv)
+				Ω(err).Should(BeNil())
+				Ω(cfenv).ShouldNot(BeNil())
+
+				fmt.Printf("%#v\n", envWithNestedCredentials)
+				fmt.Printf("%#v\n", cfenv.Services["logstash14"][0])
+				Ω(cfenv.Services["logstash14"][0].Name).Should(BeEquivalentTo("proxy-logs"))
+				Ω(cfenv.Services["logstash14"][0].Label).Should(BeEquivalentTo("logstash14"))
+				Ω(cfenv.Services["logstash14"][0].Tags).Should(BeEquivalentTo([]string{"logstash14", "logstash", "syslog"}))
+				Ω(cfenv.Services["logstash14"][0].Plan).Should(BeEquivalentTo("free"))
+				Ω(len(cfenv.Services["logstash14"][0].Credentials)).Should(BeEquivalentTo(2))
+				Ω(cfenv.Services["logstash14"][0].Credentials["hostname"]).Should(BeEquivalentTo("10.10.5.251"))
+				ports := cfenv.Services["logstash14"][0].Credentials["ports"].(map[string]interface{})
+				Ω(ports["514/tcp"]).Should(BeEquivalentTo("49160"))
+				// TODO: Ω(cfenv.Services["logstash14"][0].SyslogDrainURL).Should(BeEquivalentTo("http://10.10.5.251:49160"))
+
+				name, err := cfenv.Services.WithName("proxy-logs")
+				Ω(name.Name).Should(BeEquivalentTo("proxy-logs"))
+				Ω(err).Should(BeNil())
+
+				tagged, err := cfenv.Services.WithTag("syslog")
+				Ω(len(tagged)).Should(BeEquivalentTo(1))
+				Ω(tagged[0].Tags).Should(ContainElement("syslog"))
+				Ω(tagged[0].Tags).Should(ContainElement("logstash14"))
+				Ω(err).Should(BeNil())
+
+				label, err := cfenv.Services.WithLabel("logstash14")
+				Ω(len(label)).Should(BeEquivalentTo(1))
+				Ω(label[0].Label).Should(BeEquivalentTo("logstash14"))
 				Ω(err).Should(BeNil())
 			})
 		})

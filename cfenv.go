@@ -1,5 +1,5 @@
-// Package cfenv provides information about the current app deployed on Cloud Foundry, including any bound service(s).
-package cfenv
+// Package cfenvnested provides information about the current app deployed on Cloud Foundry, including any bound service(s).
+package cfenvnested
 
 import (
 	"encoding/json"
@@ -28,10 +28,9 @@ func New(env map[string]string) (*App, error) {
 	services := make(map[string][]Service)
 	for k, v := range rawServices {
 		var serviceInstances []Service
-		if err := mapstructure.WeakDecode(v, &serviceInstances); err != nil {
-			return nil, err
+		if err := mapstructure.WeakDecode(v, &serviceInstances); err == nil {
+			services[k] = serviceInstances
 		}
-		services[k] = serviceInstances
 	}
 	app.Services = services
 	return &app, nil

@@ -1,4 +1,4 @@
-package cfenv
+package cfenvnested
 
 // An App holds information about the current app running on Cloud Foundry
 type App struct {

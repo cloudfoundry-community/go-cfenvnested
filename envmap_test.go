@@ -1,4 +1,4 @@
-package cfenv
+package cfenvnested
 
 import (
 	. "github.com/onsi/ginkgo"
