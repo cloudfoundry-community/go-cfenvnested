@@ -1,9 +1,7 @@
 package cfenvnested_test
 
 import (
-	"fmt"
-
-	. "github.com/cloudfoundry-community/go-cfenv-nested"
+	. "github.com/cloudfoundry-community/go-cfenvnested"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -167,8 +165,6 @@ var _ = Describe("Cfenv", func() {
 				Ω(err).Should(BeNil())
 				Ω(cfenv).ShouldNot(BeNil())
 
-				fmt.Printf("%#v\n", envWithNestedCredentials)
-				fmt.Printf("%#v\n", cfenv.Services["logstash14"][0])
 				Ω(cfenv.Services["logstash14"][0].Name).Should(BeEquivalentTo("proxy-logs"))
 				Ω(cfenv.Services["logstash14"][0].Label).Should(BeEquivalentTo("logstash14"))
 				Ω(cfenv.Services["logstash14"][0].Tags).Should(BeEquivalentTo([]string{"logstash14", "logstash", "syslog"}))
