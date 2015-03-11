@@ -2,6 +2,7 @@ package cfenvnested
 
 // An App holds information about the current app running on Cloud Foundry
 type App struct {
+	ApplicationID   string   `json:"application_id"`   // guid of the app
 	ID              string   `json:"instance_id"`      // id of the app
 	Index           int      `json:"instance_index"`   // index of the app
 	Name            string   `json:"name"`             // name of the app
